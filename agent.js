@@ -22,6 +22,8 @@
  *   node agent.js mark             mark the open spread, append to the journal
  *   node agent.js close [--dry]    buy the spread back (limit near the ask)
  *   node agent.js loop             run the whole week on a schedule (checks every 5 min)
+ *   node agent.js snapshot         write backtest/sentinel.json (the dashboard's live panel)
+ *   node agent.js publish          snapshot + deploy the dashboard
  *   flags: --force (skip the gate), --risk 50, --otm 0.04, --expiry 2026-09-04
  */
 const fs = require('fs'), path = require('path'), { spawnSync } = require('child_process');
@@ -40,9 +42,16 @@ if (!KEY || !SECRET) { console.error('✗ ALPACA_API_KEY / ALPACA_SECRET_KEY mis
 const H = { 'APCA-API-KEY-ID': KEY, 'APCA-API-SECRET-KEY': SECRET, 'Content-Type': 'application/json' };
 const TRADE = 'https://paper-api.alpaca.markets/v2', DATA = 'https://data.alpaca.markets';
 async function api(base, ep, method = 'GET', body) {
-  const r = await fetch(base + ep, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
-  const t = await r.text(); if (!r.ok) throw new Error(`${method} ${ep} → ${r.status}: ${t.slice(0, 300)}`);
-  return t ? JSON.parse(t) : {};
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const r = await fetch(base + ep, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+      const t = await r.text(); if (!r.ok) throw new Error(`${method} ${ep} → ${r.status}: ${t.slice(0, 300)}`);
+      return t ? JSON.parse(t) : {};
+    } catch (e) { // transient network errors: retry reads (and idempotent DELETE/GET) a few times, never a POST
+      if (attempt >= 4 || method === 'POST' || !/fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket/i.test(e.message)) throw e;
+      await new Promise(r => setTimeout(r, 1500 * attempt));
+    }
+  }
 }
 const args = process.argv.slice(2), cmd = args[0] || 'status';
 const flag = n => { const i = args.indexOf('--' + n); return i >= 0 ? (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true) : null; };
@@ -117,6 +126,29 @@ Respond with ONLY a JSON object on the last line, no code fences: {"action":"ent
   return verdict;
 }
 
+// ---------- live snapshot for the dashboard ----------
+const SNAP_FILE = path.join(DIR, '..', 'backtest', 'sentinel.json');
+async function snapshot() {
+  const a = await api(TRADE, '/account'); const pos = await api(TRADE, '/positions').catch(() => []);
+  const open = state.trades.filter(x => x.status === 'filled' && !x.closed).slice(-1)[0] || null;
+  let mark = null;
+  if (open) { const snap = (await api(DATA, `/v1beta1/options/snapshots?symbols=${open.short},${open.long}&feed=indicative`)).snapshots || {};
+    const mid = s => { const q = snap[s]?.latestQuote || {}; return ((q.bp || 0) + (q.ap || 0)) / 2; };
+    const value = mid(open.short) - mid(open.long); const spot = (await api(DATA, `/v2/stocks/SPY/snapshot?feed=iex`)).latestTrade.p;
+    mark = { value: +value.toFixed(2), spot, pnl: +((open.credit - value) * 100 * open.qty).toFixed(0), aboveShortPct: +((spot / open.K - 1) * 100).toFixed(2) }; }
+  const journals = fs.readdirSync(JOURNAL_DIR).filter(f => f.endsWith('.md')).sort().slice(-3).map(f => ({ date: f.replace('.md', ''), md: fs.readFileSync(path.join(JOURNAL_DIR, f), 'utf8').slice(-12000) }));
+  const out = { updated: new Date().toISOString(), account: { number: a.account_number, start: 100000, equity: +a.equity, cash: +a.cash, optionsBuyingPower: +a.options_buying_power }, positions: pos.map(p => ({ symbol: p.symbol, qty: +p.qty, avgEntry: +p.avg_entry_price, price: +p.current_price, pl: +p.unrealized_pl })), trades: state.trades, open: open ? { ...open, mark } : null, equity: state.equity || [], config: { otmPct: CFG.otmPct, widthDollars: CFG.widthDollars, riskPct: CFG.riskPct, closeTime: CFG.closeTime }, journals };
+  fs.writeFileSync(SNAP_FILE, JSON.stringify(out)); console.log('📸 sentinel.json written');
+  return out;
+}
+function deploy() {
+  const env = { ...process.env, VERCEL_ORG_ID: 'team_E14YzPoSBtt52a6HDfW3yAvv', VERCEL_PROJECT_ID: 'prj_2ygo2vUoMDUTxnXF8EYqe1C7LaUo' };
+  const vercel = path.join(process.env.APPDATA || '', 'npm', 'vercel.cmd');
+  const r = spawnSync(`"${vercel}"`, ['deploy', '--prod', '--scope', 'eric-1619s-projects', '--yes'], { cwd: path.join(DIR, '..', 'backtest'), env, encoding: 'utf8', shell: true, timeout: 240000 });
+  console.log(r.status === 0 ? '🚀 dashboard deployed' : 'deploy failed: ' + (r.stderr || r.stdout || '').slice(-300));
+}
+async function publish() { try { await snapshot(); deploy(); } catch (e) { console.error('publish error:', e.message); } }
+
 // ---------- actions ----------
 async function status() {
   const a = await api(TRADE, '/account'); const pos = await api(TRADE, '/positions'); const ord = await api(TRADE, '/orders?status=open');
@@ -161,7 +193,9 @@ async function mark() {
   const mid = s => { const q = snap[s]?.latestQuote || {}; return ((q.bp || 0) + (q.ap || 0)) / 2; };
   const value = mid(t.short) - mid(t.long); const pnl = (t.credit - value) * 100 * t.qty; const spot = (await api(DATA, `/v2/stocks/SPY/snapshot?feed=iex`)).latestTrade.p;
   const line = `SPY ${spot} (${((spot / t.K - 1) * 100).toFixed(1)}% above the short strike) · spread ${value.toFixed(2)} vs ${t.credit} credit · open P/L ${usd(pnl)} on ${t.qty} spreads`;
-  console.log(line); journal('Mark', line); return { t, value, pnl, spot };
+  console.log(line); journal('Mark', line);
+  const a = await api(TRADE, '/account'); (state.equity = state.equity || []).push({ t: new Date().toISOString(), equity: +a.equity, spy: spot, spread: +value.toFixed(2), pnl: +pnl.toFixed(0) }); saveState();
+  return { t, value, pnl, spot };
 }
 async function close() {
   const t = state.trades.filter(x => x.status === 'filled' && !x.closed).slice(-1)[0]; if (!t) { console.log('no open trade'); return; }
@@ -182,9 +216,9 @@ async function loop() {
       const clock = await api(TRADE, '/clock'); const { date, hm, dow } = etParts();
       const open = state.trades.filter(x => x.status === 'filled' && !x.closed).slice(-1)[0];
       if (clock.is_open) {
-        if (open && date >= open.exp && hm >= CFG.closeTime) await close();
-        else if (!open && CFG.entryDays.includes(dow) && hm >= CFG.entryTime && hm <= CFG.entryLatest && !state.lastEntryAttempt?.startsWith(date)) { state.lastEntryAttempt = date + ' ' + hm; saveState(); await enter(); }
-        else if (open && (hm.endsWith(':00') || hm.endsWith(':30'))) await mark();
+        if (open && date >= open.exp && hm >= CFG.closeTime) { await close(); await publish(); }
+        else if (!open && CFG.entryDays.includes(dow) && hm >= CFG.entryTime && hm <= CFG.entryLatest && !state.lastEntryAttempt?.startsWith(date)) { state.lastEntryAttempt = date + ' ' + hm; saveState(); await enter(); await publish(); }
+        else if (open && (hm.endsWith(':00') || hm.endsWith(':30'))) { await mark(); await publish(); }
       }
     } catch (e) { console.error('loop error:', e.message); journal('Error', e.message); }
     { const { hm } = etParts(); if (hm >= '16:10') { console.log('market day over — loop exiting'); break; } }
@@ -200,6 +234,8 @@ async function loop() {
     else if (cmd === 'mark') await mark();
     else if (cmd === 'close') await close();
     else if (cmd === 'loop') await loop();
-    else console.log('commands: status | quote | gate | enter | mark | close | loop');
+    else if (cmd === 'snapshot') await snapshot();
+    else if (cmd === 'publish') await publish();
+    else console.log('commands: status | quote | gate | enter | mark | close | loop | snapshot | publish');
   } catch (e) { console.error('✗', e.message); process.exit(1); }
 })();
