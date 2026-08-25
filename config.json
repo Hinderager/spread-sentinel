@@ -1,0 +1,15 @@
+{
+  "underlying": "SPY",
+  "otmPct": 0.03,
+  "widthDollars": 5,
+  "riskPct": 0.70,
+  "creditFloor": 0.25,
+  "creditSign": -1,
+  "workMinutes": 20,
+  "entryDays": [2, 5],
+  "entryTime": "14:00",
+  "entryLatest": "15:45",
+  "closeTime": "10:30",
+  "expiryOverride": "2026-09-04",
+  "_notes": "Rehearsal week on the test account PA3OB3FIBDS1: entryDays includes Tuesday (2) and expiryOverride pins the contest expiry so the Aug 25 entry is the exact contest trade. For the contest account set entryDays to [5] and expiryOverride to null."
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "alpaca": {
+      "command": "alpaca-mcp-server",
+      "args": [
+        "--env-file",
+        ".env"
+      ]
+    }
+  }
+}
