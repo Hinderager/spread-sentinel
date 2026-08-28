@@ -2,14 +2,16 @@
   "underlying": "SPY",
   "otmPct": 0.03,
   "widthDollars": 5,
-  "riskPct": 0.70,
+  "riskPct": 0.7,
   "creditFloor": 0.25,
   "creditSign": -1,
   "workMinutes": 20,
-  "entryDays": [2, 5],
+  "entryDays": [
+    5
+  ],
   "entryTime": "14:00",
   "entryLatest": "15:45",
   "closeTime": "10:30",
-  "expiryOverride": "2026-09-04",
-  "_notes": "Rehearsal week on the test account PA3OB3FIBDS1: entryDays includes Tuesday (2) and expiryOverride pins the contest expiry so the Aug 25 entry is the exact contest trade. For the contest account set entryDays to [5] and expiryOverride to null."
+  "expiryOverride": null,
+  "_notes": "Contest settings on the judged account PA3P2XKS194E (created 2026-08-28, $100k): entry Fridays 14:00-15:45 ET, buy-back 10:30 ET on expiry day. The rehearsal week (Aug 24-27, account PA3OB3FIBDS1) used entryDays [2,5] and expiryOverride 2026-09-04; its state is in state.rehearsal.json."
 }

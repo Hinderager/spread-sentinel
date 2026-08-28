@@ -41,7 +41,7 @@ Multi-leg orders · Claude · Node.js · Autonomous agent · Risk management
 - Public GitHub repository: https://github.com/Hinderager/spread-sentinel
 - Demo application platform: GitHub (CLI agent) + journal
 - Application URL: https://github.com/Hinderager/spread-sentinel/tree/main/journal
-- Alpaca paper trading account ID: **PA__________** (the fresh account created at kickoff)
+- Alpaca paper trading account ID: **PA3P2XKS194E** (fresh "Contest" paper account, $100,000, created at kickoff on 2026-08-28)
 - Research behind the rule (dashboard, Put spreads / Contest settings tabs):
   https://sp500-signal-backtest.vercel.app
 

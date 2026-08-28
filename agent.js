@@ -210,6 +210,7 @@ async function close() {
   journal('Closed', `Bought back ${t.qty} × ${t.K}/${t.KL} for $${paid}. Realised ${usd(t.pnl)} (${((t.credit - paid) / (t.width - t.credit) * 100).toFixed(1)}% on the capital at risk).`);
 }
 async function loop() {
+  let lastMarkSlot = null; // half-hour slot of the last mark: the 5-min poll drifts, so match slots, not exact minutes
   console.log('loop: checking every 5 minutes · entry', CFG.entryDays.join('/'), 'at', CFG.entryTime, 'ET · buy-back at', CFG.closeTime, 'ET on expiry day');
   for (;;) {
     try {
@@ -218,7 +219,7 @@ async function loop() {
       if (clock.is_open) {
         if (open && date >= open.exp && hm >= CFG.closeTime) { await close(); await publish(); }
         else if (!open && CFG.entryDays.includes(dow) && hm >= CFG.entryTime && hm <= CFG.entryLatest && !state.lastEntryAttempt?.startsWith(date)) { state.lastEntryAttempt = date + ' ' + hm; saveState(); await enter(); await publish(); }
-        else if (open && (hm.endsWith(':00') || hm.endsWith(':30'))) { await mark(); await publish(); }
+        else if (open) { const slot = hm.slice(0, 2) + (hm.slice(3) < '30' ? ':00' : ':30'); if (slot !== lastMarkSlot) { lastMarkSlot = slot; await mark(); await publish(); } }
       }
     } catch (e) { console.error('loop error:', e.message); journal('Error', e.message); }
     { const { hm } = etParts(); if (hm >= '16:10') { console.log('market day over — loop exiting'); break; } }
