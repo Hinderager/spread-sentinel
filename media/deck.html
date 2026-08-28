@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Spread Sentinel — deck</title>
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0b1020; color: #e8ecf5; font-family: "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
+  .slide { width: 1920px; height: 1080px; padding: 96px 120px; position: relative; page-break-after: always; overflow: hidden;
+           background: radial-gradient(1200px 700px at 80% -10%, #1b2a55 0%, #0b1020 60%); display: flex; flex-direction: column; }
+  .slide:last-child { page-break-after: auto; }
+  .kicker { font-size: 26px; letter-spacing: .18em; text-transform: uppercase; color: #7fb3ff; font-weight: 600; margin-bottom: 18px; }
+  h1 { font-size: 92px; line-height: 1.02; margin: 0 0 24px; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 64px; line-height: 1.08; margin: 0 0 36px; font-weight: 750; letter-spacing: -.015em; }
+  p, li { font-size: 34px; line-height: 1.4; color: #c9d2e6; }
+  ul { margin: 0; padding-left: 40px; }
+  li { margin-bottom: 14px; }
+  li strong, p strong { color: #ffffff; }
+  .sub { font-size: 40px; color: #aab7d6; max-width: 1400px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; margin-top: 20px; }
+  .card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.10); border-radius: 22px; padding: 40px 44px; }
+  .card .n { font-size: 84px; font-weight: 800; color: #fff; letter-spacing: -.03em; line-height: 1; }
+  .card .l { font-size: 26px; color: #aab7d6; margin-top: 14px; }
+  .two { display: grid; grid-template-columns: 1.1fr .9fr; gap: 64px; align-items: start; }
+  .foot { position: absolute; bottom: 44px; left: 120px; right: 120px; display: flex; justify-content: space-between; font-size: 22px; color: #6f7ea3; }
+  .tag { display: inline-block; background: #1d3b7a; color: #cfe1ff; border-radius: 999px; padding: 8px 20px; font-size: 24px; margin: 0 10px 10px 0; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; background: rgba(255,255,255,.08); padding: 2px 10px; border-radius: 8px; font-size: .92em; color: #e8ecf5; }
+  .quote { border-left: 8px solid #7fb3ff; padding-left: 36px; font-size: 40px; color: #fff; line-height: 1.35; margin: 24px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 30px; }
+  th, td { text-align: left; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,.12); }
+  th { color: #7fb3ff; font-weight: 600; font-size: 24px; letter-spacing: .1em; text-transform: uppercase; }
+  td strong { color: #fff; }
+  .good { color: #6be3a2; } .bad { color: #ff8a8a; }
+  .shot { border-radius: 18px; border: 1px solid rgba(255,255,255,.14); max-width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+</style></head><body>
+
+<!-- 1 · Title -->
+<section class="slide">
+  <div class="kicker">Alpaca AI Trading Agents Hackathon · Aug 28 – Sep 4, 2026</div>
+  <h1>Spread Sentinel</h1>
+  <p class="sub">An autonomous SPY put-credit-spread agent on Alpaca. One 30-year-tested weekly rule, sized by Claude through the Alpaca MCP server, with every decision written to a journal.</p>
+  <div style="margin-top:auto">
+    <span class="tag">Alpaca Trading API</span><span class="tag">Alpaca MCP Server</span><span class="tag">Options · multi-leg</span><span class="tag">Claude</span><span class="tag">Node.js</span>
+  </div>
+  <div class="foot"><span>Team Hinderager · Eric Hinderager</span><span>github.com/Hinderager/spread-sentinel</span></div>
+</section>
+
+<!-- 2 · The idea -->
+<section class="slide">
+  <div class="kicker">The idea</div>
+  <h2>Don't ask the AI to predict the market.</h2>
+  <div class="two">
+    <div>
+      <p>Most "AI trading agents" ask a model which way price goes next. Spread Sentinel doesn't.</p>
+      <p>It runs <strong>one boring, well-tested trade</strong> — sell a defined-risk SPY put spread ~3% below the market each week and let it expire — and uses AI for the part a rule can't do:</p>
+      <ul>
+        <li><strong>whether</strong> this week is a week to trade,</li>
+        <li><strong>how far</strong> out of the money (3% or 4%),</li>
+        <li><strong>how big</strong> (70% or 50% of the account at risk).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="kicker" style="margin-bottom:8px">The rule</div>
+      <p style="font-size:30px">Every week: sell a SPY put spread with the short strike <strong>~3% below spot</strong>, <strong>$5 wide</strong>, expiring at the end of the week. Hold to expiry. Buy it back for pennies on the last morning. <strong>No stop-loss.</strong></p>
+    </div>
+  </div>
+  <div class="foot"><span>Spread Sentinel</span><span>2</span></div>
+</section>
+
+<!-- 3 · The evidence -->
+<section class="slide">
+  <div class="kicker">The evidence · 1,751 weeks, Jan 1993 – Aug 2026</div>
+  <h2>Built on Alpaca's own historical options feed.</h2>
+  <div class="grid">
+    <div class="card"><div class="n">93–98%</div><div class="l">of weeks are winners at 3% OTM, hold to expiry</div></div>
+    <div class="card"><div class="n">+1.7%</div><div class="l">mean weekly return on capital at risk over 30 years (+4.3% in 2023–26)</div></div>
+    <div class="card"><div class="n">&gt;3%</div><div class="l">the only way to lose: SPY falls more than ~3% by expiry</div></div>
+  </div>
+  <p style="margin-top:40px">Real last-trade prices for both legs for every week since Feb 2024 (~1,000 expired SPY contracts pulled from Alpaca), a VIX-calibrated model before that, real SPY settlement throughout.</p>
+  <p>Tested and <strong>rejected by the same data</strong>: stops on the short-strike touch, take-profit exits, iron condors, single-name underlyings, sitting out payroll weeks.</p>
+  <div class="foot"><span>Spread Sentinel</span><span>3</span></div>
+</section>
+
+<!-- 4 · The stop we refused -->
+<section class="slide">
+  <div class="kicker">Risk gates · why there is no stop-loss</div>
+  <h2>The stop that looks safe destroys the edge.</h2>
+  <div class="two">
+    <div>
+      <table>
+        <tr><th>Exit rule (36 months)</th><th>Result</th></tr>
+        <tr><td>Hold to expiry, long strike is the only stop</td><td><strong class="good">+3,873%</strong></td></tr>
+        <tr><td>Stop out when the short strike is touched</td><td><strong class="bad">+11%</strong></td></tr>
+        <tr><td>Take-profit / stop-multiple exits</td><td>worse than holding</td></tr>
+      </table>
+      <p style="margin-top:36px"><strong>60% of short-strike touches recover to a full win.</strong> A touch-stop converts the most common scare into a realised loss.</p>
+    </div>
+    <div class="card">
+      <div class="kicker" style="margin-bottom:8px">Gates that survive the data</div>
+      <ul style="font-size:28px">
+        <li><strong>Defined risk by construction</strong> — the long strike caps the loss; sizing is computed from that cap, never from margin.</li>
+        <li><strong>Never open at judging</strong> — buy-back at 10:30 ET on expiry day.</li>
+        <li><strong>Never in two trades</strong> — the loop refuses a new entry while one is open.</li>
+        <li><strong>Credit floor</strong> — no trade if the spread pays too little.</li>
+        <li><strong>Regime abort</strong> — index down &gt;1.5% on the day or VIX &gt;30 → skip.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Spread Sentinel</span><span>4</span></div>
+</section>
+
+<!-- 5 · What the AI does -->
+<section class="slide">
+  <div class="kicker">AI logic · Claude + the Alpaca MCP server</div>
+  <h2>The gate before every entry.</h2>
+  <div class="two">
+    <div>
+      <p>The agent builds the trade from live quotes, then hands it to <strong>Claude running headless</strong> with the official <strong>Alpaca MCP server</strong> and web search. Claude:</p>
+      <ul>
+        <li>sanity-checks the chain through the MCP tools — <code>get_option_snapshot</code>, <code>get_option_chain</code>, <code>get_stock_snapshot</code> — for stale marks, wide markets, odd skew;</li>
+        <li>reads the calendar and the tape for the expiry window (FOMC, CPI, index-moving earnings, shock language);</li>
+        <li>returns a JSON verdict a judge can read.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="kicker" style="margin-bottom:8px">The verdict</div>
+      <p style="font-size:28px"><code>{ action: "enter" | "skip",<br>&nbsp;&nbsp;otm: 0.03 | 0.04,<br>&nbsp;&nbsp;riskPct: 0.70 | 0.50,<br>&nbsp;&nbsp;reason: "…",<br>&nbsp;&nbsp;headlines: [...] }</code></p>
+      <p style="font-size:26px;color:#aab7d6">Rules of thumb from the backtest: calm tape &amp; IV &lt; 22% → 3% OTM, full size. IV 22–30%, FOMC/CPI in the window, or NVDA/MSFT/AAPL earnings → 4% OTM. Thin credit → half size. Payroll weeks are deliberately <em>not</em> a widen trigger.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Spread Sentinel</span><span>5</span></div>
+</section>
+
+<!-- 6 · Alpaca infrastructure -->
+<section class="slide">
+  <div class="kicker">Alpaca infrastructure</div>
+  <h2>Everything runs on Alpaca's stack.</h2>
+  <div class="grid" style="grid-template-columns: repeat(2, 1fr)">
+    <div class="card"><div class="kicker" style="margin-bottom:8px">Trading API</div><p style="font-size:28px">Account, positions, <code>mleg</code> limit orders (negative limit price = net credit), PATCH to work the price for 20 minutes, clock for market hours.</p></div>
+    <div class="card"><div class="kicker" style="margin-bottom:8px">Market Data API</div><p style="font-size:28px">Stock snapshot for spot; option snapshots for bid/ask, greeks and implied vol on both legs and the ATM strike.</p></div>
+    <div class="card"><div class="kicker" style="margin-bottom:8px">Alpaca MCP server</div><p style="font-size:28px"><code>alpaca-mcp-server</code> via <code>.mcp.json</code> — the tools Claude uses inside the gate to independently verify the chain before saying "enter".</p></div>
+    <div class="card"><div class="kicker" style="margin-bottom:8px">Historical options data</div><p style="font-size:28px">Real last trades for ~1,000 expired SPY contracts built the weekly series the whole rule rests on.</p></div>
+  </div>
+  <div class="foot"><span>Spread Sentinel</span><span>6</span></div>
+</section>
+
+<!-- 7 · The journal / rehearsal -->
+<section class="slide">
+  <div class="kicker">Transparency · the journal is the write-up</div>
+  <h2>Every decision, order, mark and buy-back — in plain text.</h2>
+  <div class="two">
+    <div>
+      <p>The agent appends to <code>journal/YYYY-MM-DD.md</code> as it goes: the gate's reasoning and full transcript, the order and fill, half-hourly marks, the buy-back and realised P/L. The public repo <em>is</em> the audit trail.</p>
+      <div class="quote">Rehearsal week (Aug 25): sold 103 × SPY 736/731 puts for $0.17 at 50% risk with SPY at 766 and ATM IV 12.7%. Two days later the spread was worth $0.03–0.06 — up ~$1,300, SPY 4.6% above the short strike.</div>
+    </div>
+    <div>
+      <img class="shot" src="dash-contest.png" alt="Dashboard — Contest settings tab">
+      <p style="font-size:24px;color:#aab7d6;margin-top:14px">sp500-signal-backtest.vercel.app · Contest settings tab: the rule over 1–36 months on a single $100k, plus the live contest trades.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Spread Sentinel</span><span>7</span></div>
+</section>
+
+<!-- 8 · Contest run -->
+<section class="slide">
+  <div class="kicker">The contest week</div>
+  <h2>Fresh $100,000 account · PA3P2XKS194E</h2>
+  <div class="grid">
+    <div class="card"><div class="n">Fri</div><div class="l">entry window 14:00–15:45 ET · SPY put spread expiring the following Friday</div></div>
+    <div class="card"><div class="n">:30</div><div class="l">half-hourly marks, each one published to the dashboard and the journal</div></div>
+    <div class="card"><div class="n">10:30</div><div class="l">ET on expiry day: buy-back near the natural so nothing is open at judging</div></div>
+  </div>
+  <p style="margin-top:40px">Sizing at 70% of the account: a normal week is ≈ +5%, a bad week is −70%. The odds don't change with size — sizing is the only real lever, which is exactly why it's the AI's main decision.</p>
+  <p><strong>Run it:</strong> <code>node agent.js quote</code> · <code>gate</code> · <code>enter</code> · <code>mark</code> · <code>close</code> · <code>loop</code></p>
+  <div class="foot"><span>Spread Sentinel · github.com/Hinderager/spread-sentinel · sp500-signal-backtest.vercel.app</span><span>8</span></div>
+</section>
+
+</body></html>

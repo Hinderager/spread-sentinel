@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Spread Sentinel — cover</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b1020; color: #e8ecf5; font-family: "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
+  .wrap { width: 1920px; height: 1080px; padding: 110px 130px; position: relative;
+          background: radial-gradient(1300px 800px at 82% -15%, #1b2a55 0%, #0b1020 60%); }
+  .kicker { font-size: 28px; letter-spacing: .2em; text-transform: uppercase; color: #7fb3ff; font-weight: 600; }
+  h1 { font-size: 150px; line-height: .98; margin: 28px 0 30px; font-weight: 850; letter-spacing: -.03em; color: #fff; }
+  .sub { font-size: 44px; line-height: 1.35; color: #aab7d6; max-width: 1350px; }
+  .tags { position: absolute; left: 130px; bottom: 110px; }
+  .tag { display: inline-block; background: #1d3b7a; color: #cfe1ff; border-radius: 999px; padding: 12px 28px; font-size: 28px; margin-right: 14px; }
+  .payoff { position: absolute; right: 130px; bottom: 90px; width: 560px; height: 360px; }
+  .who { position: absolute; right: 130px; top: 110px; font-size: 26px; color: #6f7ea3; text-align: right; line-height: 1.5; }
+</style></head><body><div class="wrap">
+  <div class="who">Team Hinderager<br>github.com/Hinderager/spread-sentinel</div>
+  <div class="kicker">Alpaca AI Trading Agents Hackathon · 2026</div>
+  <h1>Spread<br>Sentinel</h1>
+  <div class="sub">One 30-year-tested weekly SPY put spread. Claude decides whether, how far, and how big — through the Alpaca MCP server. Every decision journaled.</div>
+  <div class="tags"><span class="tag">Alpaca Trading API</span><span class="tag">Alpaca MCP Server</span><span class="tag">Options</span><span class="tag">Claude</span></div>
+  <!-- put-credit-spread payoff diagram -->
+  <svg class="payoff" viewBox="0 0 560 360" fill="none">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6be3a2" stop-opacity=".35"/><stop offset="1" stop-color="#6be3a2" stop-opacity="0"/></linearGradient></defs>
+    <line x1="30" y1="230" x2="540" y2="230" stroke="#3a4a76" stroke-width="2"/>
+    <line x1="30" y1="40" x2="30" y2="330" stroke="#3a4a76" stroke-width="2"/>
+    <path d="M60 330 L200 330 L300 200 L540 200" stroke="#6be3a2" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M300 200 L540 200 L540 230 L300 230 Z" fill="url(#g)"/>
+    <circle cx="300" cy="200" r="9" fill="#7fb3ff"/><circle cx="200" cy="330" r="9" fill="#ff8a8a"/>
+    <text x="316" y="182" fill="#cfe1ff" font-size="22" font-family="Segoe UI, Arial">short put · 3% OTM</text>
+    <text x="70" y="316" fill="#ffb3b3" font-size="22" font-family="Segoe UI, Arial">long put · $5 wide</text>
+    <text x="392" y="258" fill="#aab7d6" font-size="20" font-family="Segoe UI, Arial">SPY at expiry →</text>
+    <text x="330" y="150" fill="#6be3a2" font-size="26" font-weight="700" font-family="Segoe UI, Arial">wins 93–98% of weeks</text>
+  </svg>
+</div></body></html>
