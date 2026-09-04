@@ -72,6 +72,7 @@ const usd = n => '$' + Math.round(n).toLocaleString();
 // ---------- state / journal ----------
 const state = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : { trades: [] };
 const saveState = () => fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+const reloadState = () => { try { Object.assign(state, JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))); } catch {} };
 function journal(title, body) {
   const { date } = etParts(); const f = path.join(JOURNAL_DIR, `${date}.md`);
   const entry = `\n## ${et()} ET — ${title}\n\n${body.trim()}\n`;
@@ -210,8 +211,20 @@ async function mark() {
   const a = await api(TRADE, '/account'); (state.equity = state.equity || []).push({ t: new Date().toISOString(), equity: +a.equity, spy: spot, spread: +value.toFixed(2), pnl: +pnl.toFixed(0) }); saveState();
   return { t, value, pnl, spot };
 }
+// The spread can be gone before we get to it — bought back by another instance of this agent (two machines running
+// the loop off the same synced folder), or expired. Posting a buy-to-close against nothing gets Alpaca's
+// "position intent mismatch, inferred: buy_to_open" 422, and a loop that retries every 5 minutes fills the journal
+// with it. So: if the short leg isn't held, look up the fill that closed it and record that instead of ordering.
+async function reconcileClosed(t) {
+  const orders = await api(TRADE, '/orders?status=closed&limit=100&direction=desc').catch(() => []);
+  const fill = orders.find(o => o.status === 'filled' && (o.legs || []).some(l => l.symbol === t.short && l.side === 'buy'));
+  const paid = fill ? Math.abs(+fill.filled_avg_price || 0) : 0;
+  t.closed = fill ? et(fill.filled_at) : et(); t.closePrice = paid; t.pnl = (t.credit - paid) * 100 * t.qty; saveState();
+  journal('Closed', `${t.qty} × ${t.K}/${t.KL} was already gone when the buy-back ran — ${fill ? `bought back at $${paid} (order ${fill.id.slice(0, 8)}, ${t.closed} ET)` : 'no closing fill found, treated as expired worthless'}. Realised ${usd(t.pnl)} (${((t.credit - paid) / (t.width - t.credit) * 100).toFixed(1)}% on the capital at risk).`);
+}
 async function close() {
   const t = state.trades.filter(x => x.status === 'filled' && !x.closed).slice(-1)[0]; if (!t) { console.log('no open trade'); return; }
+  if (!(await api(TRADE, '/positions')).some(p => p.symbol === t.short)) { console.log('short leg not held — reconciling instead of ordering'); if (!DRY) await reconcileClosed(t); return; }
   const snap = (await api(DATA, `/v1beta1/options/snapshots?symbols=${t.short},${t.long}&feed=indicative`)).snapshots || {};
   const q = s => snap[s]?.latestQuote || {}; const debit = Math.max(0.01, +(((q(t.short).ap || 0) - (q(t.long).bp || 0)) + 0.01).toFixed(2)); // pay up to the natural + 1c
   const order = { order_class: 'mleg', qty: String(t.qty), type: 'limit', limit_price: String((-CFG.creditSign * debit).toFixed(2)), time_in_force: 'day',
@@ -228,6 +241,7 @@ async function loop() {
   for (;;) {
     try {
       const clock = await api(TRADE, '/clock'); const { date, hm, dow } = etParts();
+      reloadState(); // pick up a close/entry recorded by another instance (state.json is synced between machines)
       const open = state.trades.filter(x => x.status === 'filled' && !x.closed).slice(-1)[0];
       if (clock.is_open) {
         if (open && date >= open.exp && hm >= CFG.closeTime) { await close(); await publish(); }
