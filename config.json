@@ -1,17 +1,20 @@
 {
   "underlying": "SPY",
-  "otmPct": 0.03,
+  "otmPct": 0.006,
+  "otmAlt": 0.01,
   "widthDollars": 5,
   "riskPct": 0.7,
-  "creditFloor": 0.25,
+  "creditFloor": 0.3,
   "creditSign": -1,
   "workMinutes": 20,
   "entryDays": [
-    5
+    2,
+    3,
+    4
   ],
-  "entryTime": "14:00",
-  "entryLatest": "15:45",
-  "closeTime": "10:30",
-  "expiryOverride": null,
-  "_notes": "Contest settings on the judged account PA3P2XKS194E (created 2026-08-28, $100k): entry Fridays 14:00-15:45 ET, buy-back 10:30 ET on expiry day. The rehearsal week (Aug 24-27, account PA3OB3FIBDS1) used entryDays [2,5] and expiryOverride 2026-09-04; its state is in state.rehearsal.json."
+  "entryTime": "09:45",
+  "entryLatest": "14:30",
+  "closeTime": "09:40",
+  "expiryOverride": "next-day",
+  "_notes": "Contest OVERNIGHT (1DTE) settings on the judged account PA3P2XKS194E, adopted 2026-09-01 after two findings: the weekly Friday entry (3% OTM, 7 days) quoted $0.08 at ~10% IV and was floor-skipped, and intraday 0DTE pays pennies at this vol - the premium is overnight (same 0.6%-OTM strike: ~$0.07 expiring today vs ~$0.65 expiring tomorrow). Cycle: enter Tue-Thu 09:45-14:30 ET selling the NEXT trading day's expiry 0.6% OTM (gate may widen to otmAlt 1%), buy back at 09:40 ET on expiry morning, re-enter at 09:45. No Friday entry - Thursday's spread is bought back Fri 09:40 ET (07:40 MT) so the account is flat when the lablab submission closes at 09:00 MT. The original weekly config was entryDays [5], entryTime 14:00, otmPct 0.03, creditFloor 0.25, expiryOverride null. The rehearsal week (Aug 24-27, account PA3OB3FIBDS1) used entryDays [2,5] and expiryOverride 2026-09-04; its state is in state.rehearsal.json."
 }

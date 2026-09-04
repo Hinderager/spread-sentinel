@@ -3,16 +3,23 @@
  * Spread Sentinel — an autonomous SPY put-credit-spread agent for the Alpaca paper API.
  * Built for the Alpaca AI Trading Agents Hackathon (Aug 28 – Sep 4, 2026).
  *
- * The rule (from ~1,750 weeks of backtest, real option fills since Feb 2024):
- *   every week, sell a SPY put spread ~3% below the market, $5 wide, hold to expiry,
- *   size = RISK% of the account at max loss, no stop (a stop on the short-strike touch
- *   was tested and rejected — 60% of touches recover). Buy back for pennies on the
- *   last morning so nothing is open when the account is marked.
+ * The rule — the overnight (1DTE) cadence of the weekly strategy from ~1,750 weeks of
+ *   backtest (real option fills since Feb 2024), compressed for the one-week contest:
+ *   each morning, buy back yesterday's spread for whatever remains (~09:40 ET), then
+ *   sell a SPY put spread ~0.6% below the market, $5 wide, expiring the NEXT trading
+ *   day. At Aug-2026 volatility nearly all of a short-dated spread's credit is payment
+ *   for the overnight gap — the same 0.6%-OTM strike pays ~$0.07 expiring today vs
+ *   ~$0.65 expiring tomorrow — so each cycle holds exactly one night, and Friday only
+ *   buys back (no entry) so the account is flat when the contest is marked.
+ *   Size = RISK% of the account at max loss, no stop (a stop on the short-strike touch
+ *   was tested and rejected — 60% of touches recover). Expiry mode, strikes, times and
+ *   sizes all live in config.json (expiryOverride "same-day" = today, "next-day" = next
+ *   trading day; a date pins it; null = next Friday, the original weekly cycle).
  *
  * The AI layer (Claude via the Alpaca MCP server) does the judgment the rule can't:
  *   before each entry it reads the chain's implied move, the tape, and the news, then
- *   chooses the OTM distance (3% / 4%), the size (70% / 50%), or "skip" — and writes
- *   the reasoning into the journal that becomes the submission write-up.
+ *   chooses the OTM distance (otmPct / otmAlt), the size (70% / 50%), or "skip" — and
+ *   writes the reasoning into the journal that becomes the submission write-up.
  *
  * Usage (from this folder; keys in ./.env, never committed):
  *   node agent.js status           account, positions, open orders
@@ -75,6 +82,12 @@ function journal(title, body) {
 // ---------- market reads ----------
 async function nextExpiry() {
   if (flag('expiry')) return flag('expiry');
+  if (CFG.expiryOverride === 'same-day') return etParts().date; // 0DTE: SPY lists an expiry every trading day
+  if (CFG.expiryOverride === 'next-day') { // next trading day (weekend-aware; on a holiday-eve the missing contract makes quote() throw and the day is skipped)
+    const { date } = etParts(); const d = new Date(date + 'T12:00:00Z');
+    do { d.setUTCDate(d.getUTCDate() + 1); } while ([0, 6].includes(d.getUTCDay()));
+    return d.toISOString().slice(0, 10);
+  }
   if (CFG.expiryOverride) return CFG.expiryOverride;
   // next Friday strictly after today (ET); if that Friday is a holiday the contract lists on Thursday
   const { date } = etParts(); const d = new Date(date + 'T12:00:00Z'); const add = ((5 - d.getUTCDay()) + 7) % 7 || 7; d.setUTCDate(d.getUTCDate() + add);
@@ -106,14 +119,14 @@ function sizing(equity, riskPct, credit, width) {
 
 // ---------- the AI gate ----------
 function claudeGate(q, acct) {
-  const prompt = `You are the risk gate of "Spread Sentinel", an autonomous options agent trading a SPY put credit spread on an Alpaca PAPER account for a one-week hackathon.
-The rule you are gating: sell a SPY put spread with the short strike ~3% below spot, $5 wide, expiring ${q.exp}, hold to expiry, size ${Math.round(CFG.riskPct * 100)}% of the account at max loss. It wins the week unless SPY falls more than ~3% by expiry (historically ~5-8% of weeks at this volatility level).
+  const prompt = `You are the risk gate of "Spread Sentinel", an autonomous options agent running a daily overnight cycle of SPY put credit spreads on an Alpaca PAPER account for a one-week hackathon.
+The rule you are gating: sell a SPY put spread with the short strike ~${(q.otm * 100).toFixed(1)}% below spot, $5 wide, expiring the NEXT trading day (${q.exp}), bought back for whatever remains at ${CFG.closeTime} ET on the ${q.exp} morning, size ${Math.round(CFG.riskPct * 100)}% of the account at max loss. Most of the credit is payment for holding through tonight's gap; it wins the cycle unless SPY falls more than ~${(q.otm * 100).toFixed(1)}% from here before the morning buy-back (roughly 1 cycle in 10 at this volatility level).
 Live numbers as of ${q.asOf} ET: SPY ${q.spot}; proposed short strike ${q.K} (${(q.otm * 100).toFixed(1)}% OTM, delta ${q.short.delta ?? 'n/a'}), long strike ${q.KL}; net credit mid $${q.mid} / natural $${q.natural} on a $${q.width} spread; ATM implied vol ${q.atmIV ?? 'n/a'}%. Account equity ${usd(+acct.equity)}.
 Do three things, briefly:
 1. Use the Alpaca MCP tools (get_option_snapshot / get_option_chain / get_stock_snapshot) to sanity-check the quotes and note anything odd (stale quote, wide market, unusual skew).
-2. Use web search for today's market headlines: scheduled macro events before ${q.exp} (jobs report, CPI, FOMC, ISM), major earnings that move the index, and any shock language (tariffs, geopolitical, credit event). VIX level if you can find it.
-3. Decide. Rules of thumb from the backtest: calm tape and implied vol < ~22% → 3% OTM at full size. Widen to 4% OTM only for implied vol 22-30%, an FOMC decision or CPI print inside the window, or earnings from one of the three largest index weights (NVDA/MSFT/AAPL) landing after entry and before expiry. The monthly jobs report and ISM prints are NOT a reason to widen — over 1993-2026 payroll weeks lost no more often than other weeks. Credit under $${CFG.creditFloor} on the $${q.width} spread → size down to 50%. A genuine shock in progress (index down >1.5% today, or VIX > 30) → skip.
-Respond with ONLY a JSON object on the last line, no code fences: {"action":"enter"|"skip","otm":0.03|0.04,"riskPct":0.7|0.5,"reason":"<two or three sentences a judge can read>","headlines":["..."]}`;
+2. Use web search for what lands between now and the ${q.exp} morning buy-back at ${CFG.closeTime} ET: earnings from index heavyweights after TODAY's close, macro prints tomorrow morning at or before 08:30 ET (jobs report, CPI), an FOMC decision this afternoon, how the tape is trading today, and any shock language (tariffs, geopolitical, credit event). VIX level if you can find it. Events after the ${q.exp} morning buy-back CANNOT hurt this trade — ignore them.
+3. Decide. Ordinary tape → ${(CFG.otmPct * 100).toFixed(1)}% OTM at full size. Widen to ${(CFG.otmAlt * 100).toFixed(1)}% OTM if SPY is already down >0.5% today, VIX is above ~20, one of the three largest index weights (NVDA/MSFT/AAPL) reports tonight, or a market-moving print (jobs report, CPI) lands tomorrow before the buy-back. Credit under $${CFG.creditFloor} on the $${q.width} spread → size down to 50%. A genuine shock in progress (index down >1% today, or VIX > 25) → skip; there is another cycle tomorrow.
+Respond with ONLY a JSON object on the last line, no code fences: {"action":"enter"|"skip","otm":${CFG.otmPct}|${CFG.otmAlt},"riskPct":0.7|0.5,"reason":"<two or three sentences a judge can read>","headlines":["..."]}`;
   const env = { ...process.env }; delete env.ANTHROPIC_API_KEY; // headless Claude must bill the Max plan, not the API key
   // the pip-installed alpaca-mcp-server lives in the user Scripts dir, which is not on PATH by default
   env.PATH = (env.PATH || env.Path || '') + path.delimiter + path.join(process.env.APPDATA || '', 'Python', 'Python313', 'Scripts');
@@ -180,7 +193,7 @@ async function enter() {
   let px = credit; const deadline = Date.now() + CFG.workMinutes * 60000;
   while (Date.now() < deadline) { await sleep(60000); o = await api(TRADE, `/orders/${o.id}`); if (o.status === 'filled') break;
     if (['canceled', 'rejected', 'expired'].includes(o.status)) { console.log('order', o.status); break; }
-    if (px - 0.01 >= Math.max(q.natural - 0.02, CFG.creditFloor * 0.6)) { px = +(px - 0.01).toFixed(2); await api(TRADE, `/orders/${o.id}`, 'PATCH', { limit_price: String((CFG.creditSign * px).toFixed(2)) }); console.log('repriced to', px); } }
+    if (px - 0.01 >= Math.max(q.natural - 0.02, CFG.creditFloor * 0.6)) { px = +(px - 0.01).toFixed(2); o = await api(TRADE, `/orders/${o.id}`, 'PATCH', { limit_price: String((CFG.creditSign * px).toFixed(2)) }); console.log('repriced to', px); } } // PATCH returns the REPLACEMENT order — keep polling the new id, or the old one reads "replaced" forever
   o = await api(TRADE, `/orders/${o.id}`);
   const filled = o.status === 'filled'; const fillPx = filled ? Math.abs(+o.filled_avg_price || px) : null;
   state.trades.push({ opened: et(), exp: q.exp, short: q.sShort, long: q.sLong, K: q.K, KL: q.KL, width: q.width, qty: sz.qty, credit: fillPx, riskPct, orderId: o.id, status: o.status, spotAtEntry: q.spot, atmIV: q.atmIV }); saveState();

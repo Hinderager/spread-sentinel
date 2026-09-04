@@ -7,11 +7,22 @@ chosen fraction of the account, and lets Claude — talking to Alpaca through th
 
 ## The rule
 
-Every week: sell a SPY put spread with the short strike **~3% below the market**, **$5 wide**,
-expiring at the end of the week; hold to expiry; buy it back for pennies on the last morning so
-nothing is open when the account is marked. No stop-loss.
+Every trading morning: buy back yesterday's spread for whatever remains (~09:40 ET), then
+sell a SPY put spread with the short strike **~0.6% below the market**, **$5 wide**,
+**expiring the next trading day** (1DTE). One night held per cycle; no stop-loss; no entry
+on the final day, so the account is flat when it is judged.
 
-Why that rule — from a backtest of 1,751 weeks (Jan 1993 – Aug 2026; real Alpaca option
+This is the contest-week cadence of a weekly strategy: the researched rule sells the spread
+**~3% below the market expiring at the end of the week** — but in a one-week contest that
+allows exactly one trade, and at August-2026 volatility (~10% implied) the weekly spread paid
+under $0.10 on $5 of width, so the agent's credit floor correctly refused it. The daily data
+showed where the premium actually lives: expiring **today**, a 0.6%-OTM spread pays ~$0.07;
+expiring **tomorrow**, the same strike pays ~$0.65 — almost all of a short-dated spread's
+credit is payment for the overnight gap. So the contest cycle holds exactly one night: same
+shape as the research (short put spread, defined risk, hold to expiry), three full cycles
+instead of zero, and each morning's buy-back realises the P&L before the next entry.
+
+Why the strategy — from a backtest of 1,751 weeks (Jan 1993 – Aug 2026; real Alpaca option
 fills for every week since Feb 2024, a VIX-calibrated model before that, real SPY settlement
 throughout):
 
@@ -52,7 +63,7 @@ node agent.js enter --dry    # gate + order preview (no submission)
 node agent.js enter          # gate + place the spread, work the price for 20 min
 node agent.js mark           # mark the open spread
 node agent.js close          # buy it back near the ask
-node agent.js loop           # the whole week on a schedule (entry Fri 14:00 ET, buy-back 10:30 ET on expiry day)
+node agent.js loop           # the whole day on a schedule (buy-back 09:40 ET, entry 09:45 ET, next-day expiry)
 ```
 
 Flags: `--force` (skip the gate), `--risk 50`, `--otm 0.04`, `--expiry 2026-09-04`, `--dry`.
